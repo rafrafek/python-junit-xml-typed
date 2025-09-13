@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [tool.poetry]
+packages = [{ include = "junit_xml" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
