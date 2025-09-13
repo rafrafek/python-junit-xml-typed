@@ -1,20 +1,12 @@
 #!/usr/bin/env python
-# -*- coding: UTF-8 -*-
-import warnings
-from collections import defaultdict
-import sys
+
 import re
-import xml.etree.ElementTree as ET
+import sys
+import warnings
 import xml.dom.minidom
-
-from six import u, iteritems, PY2
-
-try:
-    # Python 2
-    unichr
-except NameError:  # pragma: nocover
-    # Python 3
-    unichr = chr
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+from typing import TextIO
 
 """
 Based on the understanding of what Jenkins can parse for JUnit XML files.
@@ -55,53 +47,41 @@ Based on the understanding of what Jenkins can parse for JUnit XML files.
 """
 
 
-def decode(var, encoding):
-    """
-    If not already unicode, decode it.
-    """
-    if PY2:
-        if isinstance(var, unicode):  # noqa: F821
-            ret = var
-        elif isinstance(var, str):
-            if encoding:
-                ret = var.decode(encoding)
-            else:
-                ret = unicode(var)  # noqa: F821
-        else:
-            ret = unicode(var)  # noqa: F821
-    else:
-        ret = str(var)
-    return ret
+def decode(var: str | bytes | int) -> str:
+    """If not already unicode, decode it."""
+    return str(var)
 
 
-class TestSuite(object):
+class TestSuite:
     """
     Suite of test cases.
+
     Can handle unicode strings or binary strings if their encoding is provided.
     """
 
     def __init__(
         self,
-        name,
-        test_cases=None,
-        hostname=None,
-        id=None,
-        package=None,
-        timestamp=None,
-        properties=None,
-        file=None,
-        log=None,
-        url=None,
-        stdout=None,
-        stderr=None,
-    ):
+        name: str,
+        test_cases: "list[TestCase] | None" = None,
+        hostname: str | None = None,
+        id: int | str | None = None,  # noqa: A002
+        package: str | None = None,
+        timestamp: int | None = None,
+        properties: dict[str, str] | None = None,
+        file: str | None = None,
+        log: str | None = None,
+        url: str | None = None,
+        stdout: str | None = None,
+        stderr: str | None = None,
+    ) -> None:
         self.name = name
         if not test_cases:
             test_cases = []
         try:
             iter(test_cases)
-        except TypeError:
-            raise TypeError("test_cases must be a list of test cases")
+        except TypeError as e:
+            error_message = "test_cases must be a list of test cases"
+            raise TypeError(error_message) from e
         self.test_cases = test_cases
         self.timestamp = timestamp
         self.hostname = hostname
@@ -114,40 +94,53 @@ class TestSuite(object):
         self.stderr = stderr
         self.properties = properties
 
-    def build_xml_doc(self, encoding=None):
+    def build_xml_doc(self) -> ET.Element:
         """
-        Builds the XML document for the JUnit test suite.
-        Produces clean unicode strings and decodes non-unicode with the help of encoding.
+        Build the XML document for the JUnit test suite.
+
+        Produces clean unicode strings and decodes non-unicode
+        with the help of encoding.
         @param encoding: Used to decode encoded strings.
         @return: XML document with unicode string elements
         """
-
         # build the test suite element
-        test_suite_attributes = dict()
+        test_suite_attributes: dict[str, str] = {}
         if any(c.assertions for c in self.test_cases):
-            test_suite_attributes["assertions"] = str(sum([int(c.assertions) for c in self.test_cases if c.assertions]))
-        test_suite_attributes["disabled"] = str(len([c for c in self.test_cases if not c.is_enabled]))
-        test_suite_attributes["errors"] = str(len([c for c in self.test_cases if c.is_error()]))
-        test_suite_attributes["failures"] = str(len([c for c in self.test_cases if c.is_failure()]))
-        test_suite_attributes["name"] = decode(self.name, encoding)
-        test_suite_attributes["skipped"] = str(len([c for c in self.test_cases if c.is_skipped()]))
+            test_suite_attributes["assertions"] = str(
+                sum([int(c.assertions) for c in self.test_cases if c.assertions])
+            )
+        test_suite_attributes["disabled"] = str(
+            len([c for c in self.test_cases if not c.is_enabled])
+        )
+        test_suite_attributes["errors"] = str(
+            len([c for c in self.test_cases if c.is_error()])
+        )
+        test_suite_attributes["failures"] = str(
+            len([c for c in self.test_cases if c.is_failure()])
+        )
+        test_suite_attributes["name"] = decode(self.name)
+        test_suite_attributes["skipped"] = str(
+            len([c for c in self.test_cases if c.is_skipped()])
+        )
         test_suite_attributes["tests"] = str(len(self.test_cases))
-        test_suite_attributes["time"] = str(sum(c.elapsed_sec for c in self.test_cases if c.elapsed_sec))
+        test_suite_attributes["time"] = str(
+            sum(c.elapsed_sec for c in self.test_cases if c.elapsed_sec)
+        )
 
         if self.hostname:
-            test_suite_attributes["hostname"] = decode(self.hostname, encoding)
+            test_suite_attributes["hostname"] = decode(self.hostname)
         if self.id:
-            test_suite_attributes["id"] = decode(self.id, encoding)
+            test_suite_attributes["id"] = decode(self.id)
         if self.package:
-            test_suite_attributes["package"] = decode(self.package, encoding)
+            test_suite_attributes["package"] = decode(self.package)
         if self.timestamp:
-            test_suite_attributes["timestamp"] = decode(self.timestamp, encoding)
+            test_suite_attributes["timestamp"] = decode(self.timestamp)
         if self.file:
-            test_suite_attributes["file"] = decode(self.file, encoding)
+            test_suite_attributes["file"] = decode(self.file)
         if self.log:
-            test_suite_attributes["log"] = decode(self.log, encoding)
+            test_suite_attributes["log"] = decode(self.log)
         if self.url:
-            test_suite_attributes["url"] = decode(self.url, encoding)
+            test_suite_attributes["url"] = decode(self.url)
 
         xml_element = ET.Element("testsuite", test_suite_attributes)
 
@@ -155,58 +148,60 @@ class TestSuite(object):
         if self.properties:
             props_element = ET.SubElement(xml_element, "properties")
             for k, v in self.properties.items():
-                attrs = {"name": decode(k, encoding), "value": decode(v, encoding)}
+                attrs = {"name": decode(k), "value": decode(v)}
                 ET.SubElement(props_element, "property", attrs)
 
         # add test suite stdout
         if self.stdout:
             stdout_element = ET.SubElement(xml_element, "system-out")
-            stdout_element.text = decode(self.stdout, encoding)
+            stdout_element.text = decode(self.stdout)
 
         # add test suite stderr
         if self.stderr:
             stderr_element = ET.SubElement(xml_element, "system-err")
-            stderr_element.text = decode(self.stderr, encoding)
+            stderr_element.text = decode(self.stderr)
 
         # test cases
         for case in self.test_cases:
-            test_case_attributes = dict()
-            test_case_attributes["name"] = decode(case.name, encoding)
+            test_case_attributes: dict[str, str] = {}
+            test_case_attributes["name"] = decode(case.name)
             if case.assertions:
                 # Number of assertions in the test case
-                test_case_attributes["assertions"] = "%d" % case.assertions
+                test_case_attributes["assertions"] = f"{case.assertions:d}"
             if case.elapsed_sec:
-                test_case_attributes["time"] = "%f" % case.elapsed_sec
+                test_case_attributes["time"] = f"{case.elapsed_sec:f}"
             if case.timestamp:
-                test_case_attributes["timestamp"] = decode(case.timestamp, encoding)
+                test_case_attributes["timestamp"] = decode(case.timestamp)
             if case.classname:
-                test_case_attributes["classname"] = decode(case.classname, encoding)
+                test_case_attributes["classname"] = decode(case.classname)
             if case.status:
-                test_case_attributes["status"] = decode(case.status, encoding)
+                test_case_attributes["status"] = decode(case.status)
             if case.category:
-                test_case_attributes["class"] = decode(case.category, encoding)
+                test_case_attributes["class"] = decode(case.category)
             if case.file:
-                test_case_attributes["file"] = decode(case.file, encoding)
+                test_case_attributes["file"] = decode(case.file)
             if case.line:
-                test_case_attributes["line"] = decode(case.line, encoding)
+                test_case_attributes["line"] = decode(case.line)
             if case.log:
-                test_case_attributes["log"] = decode(case.log, encoding)
+                test_case_attributes["log"] = decode(case.log)
             if case.url:
-                test_case_attributes["url"] = decode(case.url, encoding)
+                test_case_attributes["url"] = decode(case.url)
 
-            test_case_element = ET.SubElement(xml_element, "testcase", test_case_attributes)
+            test_case_element = ET.SubElement(
+                xml_element, "testcase", test_case_attributes
+            )
 
             # failures
             for failure in case.failures:
                 if failure["output"] or failure["message"]:
                     attrs = {"type": "failure"}
                     if failure["message"]:
-                        attrs["message"] = decode(failure["message"], encoding)
+                        attrs["message"] = decode(failure["message"])
                     if failure["type"]:
-                        attrs["type"] = decode(failure["type"], encoding)
+                        attrs["type"] = decode(failure["type"])
                     failure_element = ET.Element("failure", attrs)
                     if failure["output"]:
-                        failure_element.text = decode(failure["output"], encoding)
+                        failure_element.text = decode(failure["output"])
                     test_case_element.append(failure_element)
 
             # errors
@@ -214,121 +209,141 @@ class TestSuite(object):
                 if error["message"] or error["output"]:
                     attrs = {"type": "error"}
                     if error["message"]:
-                        attrs["message"] = decode(error["message"], encoding)
+                        attrs["message"] = decode(error["message"])
                     if error["type"]:
-                        attrs["type"] = decode(error["type"], encoding)
+                        attrs["type"] = decode(error["type"])
                     error_element = ET.Element("error", attrs)
                     if error["output"]:
-                        error_element.text = decode(error["output"], encoding)
+                        error_element.text = decode(error["output"])
                     test_case_element.append(error_element)
 
             # skippeds
             for skipped in case.skipped:
                 attrs = {"type": "skipped"}
                 if skipped["message"]:
-                    attrs["message"] = decode(skipped["message"], encoding)
+                    attrs["message"] = decode(skipped["message"])
                 skipped_element = ET.Element("skipped", attrs)
                 if skipped["output"]:
-                    skipped_element.text = decode(skipped["output"], encoding)
+                    skipped_element.text = decode(skipped["output"])
                 test_case_element.append(skipped_element)
 
             # test stdout
             if case.stdout:
                 stdout_element = ET.Element("system-out")
-                stdout_element.text = decode(case.stdout, encoding)
+                stdout_element.text = decode(case.stdout)
                 test_case_element.append(stdout_element)
 
             # test stderr
             if case.stderr:
                 stderr_element = ET.Element("system-err")
-                stderr_element.text = decode(case.stderr, encoding)
+                stderr_element.text = decode(case.stderr)
                 test_case_element.append(stderr_element)
 
         return xml_element
 
     @staticmethod
-    def to_xml_string(test_suites, prettyprint=True, encoding=None):
+    def to_xml_string(
+        test_suites: "list[TestSuite]",
+        prettyprint: bool = True,
+        encoding: str | None = None,
+    ) -> str:
         """
-        Returns the string representation of the JUnit XML document.
+        Return the string representation of the JUnit XML document.
+
         @param encoding: The encoding of the input.
         @return: unicode string
         """
         warnings.warn(
-            "Testsuite.to_xml_string is deprecated. It will be removed in version 2.0.0. "
+            "Testsuite.to_xml_string is deprecated. "
+            "It will be removed in version 2.0.0. "
             "Use function to_xml_report_string",
             DeprecationWarning,
         )
         return to_xml_report_string(test_suites, prettyprint, encoding)
 
     @staticmethod
-    def to_file(file_descriptor, test_suites, prettyprint=True, encoding=None):
-        """
-        Writes the JUnit XML document to a file.
-        """
+    def to_file(
+        file_descriptor: TextIO,
+        test_suites: "list[TestSuite]",
+        prettyprint: bool = True,
+        encoding: str | None = None,
+    ) -> None:
+        """Write the JUnit XML document to a file."""
         warnings.warn(
-            "Testsuite.to_file is deprecated. It will be removed in version 2.0.0. Use function to_xml_report_file",
+            "Testsuite.to_file is deprecated. "
+            "It will be removed in version 2.0.0. "
+            "Use function to_xml_report_file",
             DeprecationWarning,
         )
         to_xml_report_file(file_descriptor, test_suites, prettyprint, encoding)
 
 
-def to_xml_report_string(test_suites, prettyprint=True, encoding=None):
+def to_xml_report_string(
+    test_suites: list[TestSuite], prettyprint: bool = True, encoding: str | None = None
+) -> str:
     """
-    Returns the string representation of the JUnit XML document.
+    Return the string representation of the JUnit XML document.
+
     @param encoding: The encoding of the input.
     @return: unicode string
     """
+    encoding = encoding or "utf-8"
 
     try:
         iter(test_suites)
-    except TypeError:
-        raise TypeError("test_suites must be a list of test suites")
+    except TypeError as e:
+        error_message = "test_suites must be a list of test suites"
+        raise TypeError(error_message) from e
 
     xml_element = ET.Element("testsuites")
-    attributes = defaultdict(int)
+    attributes: dict[str, int | float] = defaultdict(int)
     for ts in test_suites:
-        ts_xml = ts.build_xml_doc(encoding=encoding)
+        ts_xml = ts.build_xml_doc()
         for key in ["disabled", "errors", "failures", "tests"]:
             attributes[key] += int(ts_xml.get(key, 0))
         for key in ["time"]:
             attributes[key] += float(ts_xml.get(key, 0))
         xml_element.append(ts_xml)
-    for key, value in iteritems(attributes):
+    for key, value in attributes.items():
         xml_element.set(key, str(value))
 
     xml_string = ET.tostring(xml_element, encoding=encoding)
     # is encoded now
-    xml_string = _clean_illegal_xml_chars(xml_string.decode(encoding or "utf-8"))
+    xml_string = _clean_illegal_xml_chars(xml_string.decode(encoding))
     # is unicode now
 
     if prettyprint:
         # minidom.parseString() works just on correctly encoded binary strings
-        xml_string = xml_string.encode(encoding or "utf-8")
+        xml_string = xml_string.encode(encoding)
         xml_string = xml.dom.minidom.parseString(xml_string)
-        # toprettyxml() produces unicode if no encoding is being passed or binary string with an encoding
+        # toprettyxml() produces unicode if no encoding is being passed
+        # or binary string with an encoding
         xml_string = xml_string.toprettyxml(encoding=encoding)
-        if encoding:
-            xml_string = xml_string.decode(encoding)
+        xml_string = xml_string.decode(encoding)
         # is unicode now
     return xml_string
 
 
-def to_xml_report_file(file_descriptor, test_suites, prettyprint=True, encoding=None):
-    """
-    Writes the JUnit XML document to a file.
-    """
-    xml_string = to_xml_report_string(test_suites, prettyprint=prettyprint, encoding=encoding)
+def to_xml_report_file(
+    file_descriptor: TextIO,
+    test_suites: list[TestSuite],
+    prettyprint: bool = True,
+    encoding: str | None = None,
+) -> None:
+    """Write the JUnit XML document to a file."""
+    xml_string = to_xml_report_string(
+        test_suites, prettyprint=prettyprint, encoding=encoding
+    )
     # has problems with encoded str with non-ASCII (non-default-encoding) characters!
     file_descriptor.write(xml_string)
 
 
-def _clean_illegal_xml_chars(string_to_clean):
+def _clean_illegal_xml_chars(string_to_clean: str) -> str:
     """
-    Removes any illegal unicode characters from the given XML string.
+    Remove any illegal unicode characters from the given XML string.
 
     @see: http://stackoverflow.com/questions/1707890/fast-way-to-filter-illegal-xml-unicode-chars-in-python
     """
-
     illegal_unichrs = [
         (0x00, 0x08),
         (0x0B, 0x1F),
@@ -355,32 +370,36 @@ def _clean_illegal_xml_chars(string_to_clean):
         (0x10FFFE, 0x10FFFF),
     ]
 
-    illegal_ranges = ["%s-%s" % (unichr(low), unichr(high)) for (low, high) in illegal_unichrs if low < sys.maxunicode]
+    illegal_ranges = [
+        f"{chr(low)}-{chr(high)}"
+        for (low, high) in illegal_unichrs
+        if low < sys.maxunicode
+    ]
 
-    illegal_xml_re = re.compile(u("[%s]") % u("").join(illegal_ranges))
+    illegal_xml_re = re.compile("[{}]".format("".join(illegal_ranges)))
     return illegal_xml_re.sub("", string_to_clean)
 
 
-class TestCase(object):
-    """A JUnit test case with a result and possibly some stdout or stderr"""
+class TestCase:
+    """A JUnit test case with a result and possibly some stdout or stderr."""
 
     def __init__(
         self,
-        name,
-        classname=None,
-        elapsed_sec=None,
-        stdout=None,
-        stderr=None,
-        assertions=None,
-        timestamp=None,
-        status=None,
-        category=None,
-        file=None,
-        line=None,
-        log=None,
-        url=None,
-        allow_multiple_subelements=False,
-    ):
+        name: str,
+        classname: str | None = None,
+        elapsed_sec: float | None = None,
+        stdout: str | None = None,
+        stderr: str | None = None,
+        assertions: int | None = None,
+        timestamp: int | None = None,
+        status: str | None = None,
+        category: str | None = None,
+        file: str | None = None,
+        line: str | None = None,
+        log: str | None = None,
+        url: str | None = None,
+        allow_multiple_subelements: bool = False,
+    ) -> None:
         self.name = name
         self.assertions = assertions
         self.elapsed_sec = elapsed_sec
@@ -396,18 +415,23 @@ class TestCase(object):
         self.stderr = stderr
 
         self.is_enabled = True
-        self.errors = []
-        self.failures = []
-        self.skipped = []
-        self.allow_multiple_subalements = allow_multiple_subelements
+        self.errors: list[dict[str, str | None]] = []
+        self.failures: list[dict[str, str | None]] = []
+        self.skipped: list[dict[str, str | None]] = []
+        self.allow_multiple_subelements = allow_multiple_subelements
 
-    def add_error_info(self, message=None, output=None, error_type=None):
-        """Adds an error message, output, or both to the test case"""
-        error = {}
+    def add_error_info(
+        self,
+        message: str | None = None,
+        output: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        """Add an error message, output, or both to the test case."""
+        error: dict[str, str | None] = {}
         error["message"] = message
         error["output"] = output
         error["type"] = error_type
-        if self.allow_multiple_subalements:
+        if self.allow_multiple_subelements:
             if message or output:
                 self.errors.append(error)
         elif not len(self.errors):
@@ -420,13 +444,18 @@ class TestCase(object):
             if error_type:
                 self.errors[0]["type"] = error_type
 
-    def add_failure_info(self, message=None, output=None, failure_type=None):
-        """Adds a failure message, output, or both to the test case"""
-        failure = {}
+    def add_failure_info(
+        self,
+        message: str | None = None,
+        output: str | None = None,
+        failure_type: str | None = None,
+    ) -> None:
+        """Add a failure message, output, or both to the test case."""
+        failure: dict[str, str | None] = {}
         failure["message"] = message
         failure["output"] = output
         failure["type"] = failure_type
-        if self.allow_multiple_subalements:
+        if self.allow_multiple_subelements:
             if message or output:
                 self.failures.append(failure)
         elif not len(self.failures):
@@ -439,12 +468,14 @@ class TestCase(object):
             if failure_type:
                 self.failures[0]["type"] = failure_type
 
-    def add_skipped_info(self, message=None, output=None):
-        """Adds a skipped message, output, or both to the test case"""
-        skipped = {}
+    def add_skipped_info(
+        self, message: str | None = None, output: str | None = None
+    ) -> None:
+        """Add a skipped message, output, or both to the test case."""
+        skipped: dict[str, str | None] = {}
         skipped["message"] = message
         skipped["output"] = output
-        if self.allow_multiple_subalements:
+        if self.allow_multiple_subelements:
             if message or output:
                 self.skipped.append(skipped)
         elif not len(self.skipped):
@@ -455,14 +486,17 @@ class TestCase(object):
             if output:
                 self.skipped[0]["output"] = output
 
-    def is_failure(self):
-        """returns true if this test case is a failure"""
+    def is_failure(self) -> bool:
+        """Return true if this test case is a failure."""
         return sum(1 for f in self.failures if f["message"] or f["output"]) > 0
 
-    def is_error(self):
-        """returns true if this test case is an error"""
+    def is_error(self) -> bool:
+        """Return true if this test case is an error."""
         return sum(1 for e in self.errors if e["message"] or e["output"]) > 0
 
-    def is_skipped(self):
-        """returns true if this test case has been skipped"""
+    def is_skipped(self) -> bool:
+        """Return true if this test case has been skipped."""
         return len(self.skipped) > 0
+
+
+__all__ = ["TestCase", "TestSuite", "to_xml_report_file", "to_xml_report_string"]

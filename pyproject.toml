@@ -1,2 +1,89 @@
-[tool.black]
-line-length = 120
+[project]
+name = "python-junit-xml-typed"
+version = "1.9"
+description = "Creates JUnit XML test result documents"
+authors = []
+license = { text = "MIT License" }
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.poetry]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+fix = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # flake8-bugbear (B)
+    "B028", # no-explicit-stacklevel
+
+    # mccabe (C90)
+    "C901", # complex-structure
+
+    # flake8-commas (COM)
+    "COM812", # missing-trailing-comma, formatter conflict
+
+    # pydocstyle (D)
+    "D100", # undocumented-public-module
+    "D103", # undocumented-public-function
+    "D104", # undocumented-public-package
+    "D107", # undocumented-public-init
+    "D203", # incorrect-blank-line-before-class, formatter conflict
+    "D211", # blank-line-before-class, formatter conflict
+    "D212", # multi-line-summary-first-line
+
+    # flake8-future-annotations (FA)
+    "FA102", # future-required-type-annotation
+
+    # flake8-boolean-trap (FBT)
+    "FBT001", # boolean-type-hint-positional-argument
+    "FBT002", # boolean-default-value-positional-argument
+
+    # Refactor (PLR)
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+
+    # flake8-use-pathlib (PTH)
+    "PTH107", # os-remove
+
+    # flake8-bandit (S)
+    "S101", # use of assert
+    "S318", # suspicious-xml-mini-dom-usage
+
+    # flake8-simplify (SIM)
+    "SIM118", # in-dict-keys
+
+    # flake8-print (T20)
+    "T201", # print statement detected
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+deprecateTypingAliases = true
+enableExperimentalFeatures = true
+reportCallInDefaultInitializer = "error"
+reportImplicitOverride = "error"
+reportImportCycles = "error"
+reportMissingModuleSource = "error"
+reportPropertyTypeMismatch = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnreachable = "error"

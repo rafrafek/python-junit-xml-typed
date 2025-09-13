@@ -1,31 +1,29 @@
-# -*- coding: UTF-8 -*-
-from __future__ import with_statement
-
 import textwrap
 import warnings
+from io import StringIO
 
 import pytest
-from six import PY2, StringIO
 
-from .asserts import verify_test_case
 from junit_xml import TestCase as Case
 from junit_xml import TestSuite as Suite
 from junit_xml import decode, to_xml_report_string
+
+from .asserts import verify_test_case
 from .serializer import serialize_and_read
 
 
-def test_single_suite_single_test_case():
+def test_single_suite_single_test_case() -> None:
     with pytest.raises(TypeError) as excinfo:
-        serialize_and_read(Suite("test", Case("Test1")), to_file=True)[0]
+        serialize_and_read(Suite("test", Case("Test1")), to_file=True)[0]  # pyright: ignore[reportArgumentType]
     assert str(excinfo.value) == "test_cases must be a list of test cases"
 
 
-def test_single_suite_no_test_cases():
+def test_single_suite_no_test_cases() -> None:
     properties = {"foo": "bar"}
     package = "mypackage"
     timestamp = 1398382805
 
-    ts, tcs = serialize_and_read(
+    ts, _ = serialize_and_read(
         Suite(
             name="test",
             test_cases=[],
@@ -41,11 +39,11 @@ def test_single_suite_no_test_cases():
     assert ts.tagName == "testsuite"
     assert ts.attributes["package"].value == package
     assert ts.attributes["timestamp"].value == str(timestamp)
-    assert ts.childNodes[0].childNodes[0].attributes["name"].value == "foo"
-    assert ts.childNodes[0].childNodes[0].attributes["value"].value == "bar"
+    assert ts.childNodes[0].childNodes[0].attributes["name"].value == "foo"  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
+    assert ts.childNodes[0].childNodes[0].attributes["value"].value == "bar"  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
 
 
-def test_single_suite_no_test_cases_utf8():
+def test_single_suite_no_test_cases_utf8() -> None:
     properties = {"foö": "bär"}
     package = "mypäckage"
     timestamp = 1398382805
@@ -59,25 +57,27 @@ def test_single_suite_no_test_cases_utf8():
         package=package,
         timestamp=timestamp,
     )
-    ts, tcs = serialize_and_read(test_suite, to_file=True, prettyprint=True, encoding="utf-8")[0]
+    ts, _ = serialize_and_read(
+        test_suite, to_file=True, prettyprint=True, encoding="utf-8"
+    )[0]
     assert ts.tagName == "testsuite"
-    assert ts.attributes["package"].value == decode(package, "utf-8")
+    assert ts.attributes["package"].value == decode(package)
     assert ts.attributes["timestamp"].value == str(timestamp)
-    assert ts.childNodes[0].childNodes[0].attributes["name"].value == decode("foö", "utf-8")
-    assert ts.childNodes[0].childNodes[0].attributes["value"].value == decode("bär", "utf-8")
+    assert ts.childNodes[0].childNodes[0].attributes["name"].value == decode("foö")  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
+    assert ts.childNodes[0].childNodes[0].attributes["value"].value == decode("bär")  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
 
 
-def test_single_suite_no_test_cases_unicode():
-    properties = {decode("foö", "utf-8"): decode("bär", "utf-8")}
-    package = decode("mypäckage", "utf-8")
+def test_single_suite_no_test_cases_unicode() -> None:
+    properties = {decode("foö"): decode("bär")}
+    package = decode("mypäckage")
     timestamp = 1398382805
 
-    ts, tcs = serialize_and_read(
+    ts, _ = serialize_and_read(
         Suite(
-            name=decode("äöü", "utf-8"),
+            name=decode("äöü"),
             test_cases=[],
-            hostname=decode("löcalhost", "utf-8"),
-            id=decode("äöü", "utf-8"),
+            hostname=decode("löcalhost"),
+            id=decode("äöü"),
             properties=properties,
             package=package,
             timestamp=timestamp,
@@ -89,31 +89,37 @@ def test_single_suite_no_test_cases_unicode():
     assert ts.tagName == "testsuite"
     assert ts.attributes["package"].value == package
     assert ts.attributes["timestamp"].value, str(timestamp)
-    assert ts.childNodes[0].childNodes[0].attributes["name"].value == decode("foö", "utf-8")
-    assert ts.childNodes[0].childNodes[0].attributes["value"].value == decode("bär", "utf-8")
+    assert ts.childNodes[0].childNodes[0].attributes["name"].value == decode("foö")  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
+    assert ts.childNodes[0].childNodes[0].attributes["value"].value == decode("bär")  # pyright: ignore[reportUnknownMemberType, reportOptionalSubscript, reportGeneralTypeIssues]
 
 
-def test_single_suite_to_file():
-    ts, tcs = serialize_and_read(Suite("test", [Case("Test1")]), to_file=True)[0]
+def test_single_suite_to_file() -> None:
+    _, tcs = serialize_and_read(Suite("test", [Case("Test1")]), to_file=True)[0]
     verify_test_case(tcs[0], {"name": "Test1"})
 
 
-def test_single_suite_to_file_prettyprint():
-    ts, tcs = serialize_and_read(Suite("test", [Case("Test1")]), to_file=True, prettyprint=True)[0]
+def test_single_suite_to_file_prettyprint() -> None:
+    _, tcs = serialize_and_read(
+        Suite("test", [Case("Test1")]), to_file=True, prettyprint=True
+    )[0]
     verify_test_case(tcs[0], {"name": "Test1"})
 
 
-def test_single_suite_prettyprint():
-    ts, tcs = serialize_and_read(Suite("test", [Case("Test1")]), to_file=False, prettyprint=True)[0]
+def test_single_suite_prettyprint() -> None:
+    _, tcs = serialize_and_read(
+        Suite("test", [Case("Test1")]), to_file=False, prettyprint=True
+    )[0]
     verify_test_case(tcs[0], {"name": "Test1"})
 
 
-def test_single_suite_to_file_no_prettyprint():
-    ts, tcs = serialize_and_read(Suite("test", [Case("Test1")]), to_file=True, prettyprint=False)[0]
+def test_single_suite_to_file_no_prettyprint() -> None:
+    _, tcs = serialize_and_read(
+        Suite("test", [Case("Test1")]), to_file=True, prettyprint=False
+    )[0]
     verify_test_case(tcs[0], {"name": "Test1"})
 
 
-def test_multiple_suites_to_file():
+def test_multiple_suites_to_file() -> None:
     tss = [Suite("suite1", [Case("Test1")]), Suite("suite2", [Case("Test2")])]
     suites = serialize_and_read(tss, to_file=True)
 
@@ -124,7 +130,7 @@ def test_multiple_suites_to_file():
     verify_test_case(suites[1][1][0], {"name": "Test2"})
 
 
-def test_multiple_suites_to_string():
+def test_multiple_suites_to_string() -> None:
     tss = [Suite("suite1", [Case("Test1")]), Suite("suite2", [Case("Test2")])]
     suites = serialize_and_read(tss)
 
@@ -135,7 +141,7 @@ def test_multiple_suites_to_string():
     verify_test_case(suites[1][1][0], {"name": "Test2"})
 
 
-def test_attribute_time():
+def test_attribute_time() -> None:
     tss = [
         Suite(
             "suite1",
@@ -157,7 +163,7 @@ def test_attribute_time():
     assert suites[1][0].attributes["time"].value == "0"
 
 
-def test_attribute_disable():
+def test_attribute_disable() -> None:
     tc = Case("Disabled-Test")
     tc.is_enabled = False
     tss = [Suite("suite1", [tc])]
@@ -166,42 +172,61 @@ def test_attribute_disable():
     assert suites[0][0].attributes["disabled"].value == "1"
 
 
-def test_stderr():
-    suites = serialize_and_read(Suite(name="test", stderr="I am stderr!", test_cases=[Case(name="Test1")]))[0]
-    assert suites[0].getElementsByTagName("system-err")[0].firstChild.data == "I am stderr!"
-
-
-def test_stdout_stderr():
+def test_stderr() -> None:
     suites = serialize_and_read(
-        Suite(name="test", stdout="I am stdout!", stderr="I am stderr!", test_cases=[Case(name="Test1")])
+        Suite(name="test", stderr="I am stderr!", test_cases=[Case(name="Test1")])
     )[0]
-    assert suites[0].getElementsByTagName("system-err")[0].firstChild.data == "I am stderr!"
-    assert suites[0].getElementsByTagName("system-out")[0].firstChild.data == "I am stdout!"
+    assert (
+        suites[0].getElementsByTagName("system-err")[0].firstChild.data  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+        == "I am stderr!"
+    )
 
 
-def test_no_assertions():
+def test_stdout_stderr() -> None:
+    suites = serialize_and_read(
+        Suite(
+            name="test",
+            stdout="I am stdout!",
+            stderr="I am stderr!",
+            test_cases=[Case(name="Test1")],
+        )
+    )[0]
+    assert (
+        suites[0].getElementsByTagName("system-err")[0].firstChild.data  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+        == "I am stderr!"
+    )
+    assert (
+        suites[0].getElementsByTagName("system-out")[0].firstChild.data  # pyright: ignore[reportUnknownMemberType, reportOptionalMemberAccess, reportAttributeAccessIssue]
+        == "I am stdout!"
+    )
+
+
+def test_no_assertions() -> None:
     suites = serialize_and_read(Suite(name="test", test_cases=[Case(name="Test1")]))[0]
     assert not suites[0].getElementsByTagName("testcase")[0].hasAttribute("assertions")
 
 
-def test_assertions():
-    suites = serialize_and_read(Suite(name="test", test_cases=[Case(name="Test1", assertions=5)]))[0]
-    assert suites[0].getElementsByTagName("testcase")[0].attributes["assertions"].value == "5"
+def test_assertions() -> None:
+    suites = serialize_and_read(
+        Suite(name="test", test_cases=[Case(name="Test1", assertions=5)])
+    )[0]
+    assert (
+        suites[0].getElementsByTagName("testcase")[0].attributes["assertions"].value
+        == "5"
+    )
 
     # @todo: add more tests for the other attributes and properties
 
 
-def test_to_xml_string():
+def test_to_xml_string() -> None:
     test_suites = [
         Suite(name="suite1", test_cases=[Case(name="Test1")]),
         Suite(name="suite2", test_cases=[Case(name="Test2")]),
     ]
     xml_string = to_xml_report_string(test_suites)
-    if PY2:
-        assert isinstance(xml_string, unicode)  # noqa: F821
     expected_xml_string = textwrap.dedent(
         """
-        <?xml version="1.0" ?>
+        <?xml version="1.0" encoding="utf-8"?>
         <testsuites disabled="0" errors="0" failures="0" tests="2" time="0.0">
         \t<testsuite disabled="0" errors="0" failures="0" name="suite1" skipped="0" tests="1" time="0">
         \t\t<testcase name="Test1"/>
@@ -210,22 +235,20 @@ def test_to_xml_string():
         \t\t<testcase name="Test2"/>
         \t</testsuite>
         </testsuites>
-    """.strip(
-            "\n"
-        )
+    """.strip("\n")  # noqa: E501
     )
     assert xml_string == expected_xml_string
 
 
-def test_to_xml_string_test_suites_not_a_list():
+def test_to_xml_string_test_suites_not_a_list() -> None:
     test_suites = Suite("suite1", [Case("Test1")])
 
     with pytest.raises(TypeError) as excinfo:
-        to_xml_report_string(test_suites)
+        to_xml_report_string(test_suites)  # pyright: ignore[reportArgumentType]
     assert str(excinfo.value) == "test_suites must be a list of test suites"
 
 
-def test_deprecated_to_xml_string():
+def test_deprecated_to_xml_string() -> None:
     with warnings.catch_warnings(record=True) as w:
         Suite.to_xml_string([])
         assert len(w) == 1
@@ -233,7 +256,7 @@ def test_deprecated_to_xml_string():
         assert "Testsuite.to_xml_string is deprecated" in str(w[0].message)
 
 
-def test_deprecated_to_file():
+def test_deprecated_to_file() -> None:
     with warnings.catch_warnings(record=True) as w:
         Suite.to_file(StringIO(), [])
         assert len(w) == 1
