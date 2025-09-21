@@ -15,7 +15,7 @@ def serialize_and_read(
     """
     Write the test suite to an XML string and then re-reads it using minidom.
 
-    Returns => (test suite element, list of test case elements).
+    Return => (test suite element, list of test case elements).
     """
     if not isinstance(test_suites, list):
         test_suites = [test_suites]

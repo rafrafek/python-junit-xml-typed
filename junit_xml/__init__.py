@@ -285,8 +285,6 @@ def to_xml_report_string(
     @param encoding: The encoding of the input.
     @return: unicode string
     """
-    encoding = encoding or "utf-8"
-
     try:
         iter(test_suites)
     except TypeError as e:
@@ -307,17 +305,18 @@ def to_xml_report_string(
 
     xml_string = ET.tostring(xml_element, encoding=encoding)
     # is encoded now
-    xml_string = _clean_illegal_xml_chars(xml_string.decode(encoding))
+    xml_string = _clean_illegal_xml_chars(xml_string.decode(encoding or "utf-8"))
     # is unicode now
 
     if prettyprint:
         # minidom.parseString() works just on correctly encoded binary strings
-        xml_string = xml_string.encode(encoding)
+        xml_string = xml_string.encode(encoding or "utf-8")
         xml_string = xml.dom.minidom.parseString(xml_string)
         # toprettyxml() produces unicode if no encoding is being passed
         # or binary string with an encoding
         xml_string = xml_string.toprettyxml(encoding=encoding)
-        xml_string = xml_string.decode(encoding)
+        if not isinstance(xml_string, str):
+            xml_string = xml_string.decode(encoding or "utf-8")
         # is unicode now
     return xml_string
 

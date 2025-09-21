@@ -226,7 +226,7 @@ def test_to_xml_string() -> None:
     xml_string = to_xml_report_string(test_suites)
     expected_xml_string = textwrap.dedent(
         """
-        <?xml version="1.0" encoding="utf-8"?>
+        <?xml version="1.0" ?>
         <testsuites disabled="0" errors="0" failures="0" tests="2" time="0.0">
         \t<testsuite disabled="0" errors="0" failures="0" name="suite1" skipped="0" tests="1" time="0">
         \t\t<testcase name="Test1"/>
